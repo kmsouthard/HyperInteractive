@@ -16,7 +16,7 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
     lenSlide = '500px'
 
     fig = px.scatter(data, x="x", y="y", color=legend_group,hover_data= hover_dat,
-                 log_x=True, title='Hyperparameter Exploration',height=600)
+                 log_x=False, title='Hyperparameter Exploration',height=600)
 
     fig.update_layout(
         legend=dict(
@@ -28,7 +28,8 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
         xaxis=dict(title=initial_axis[0],
                    titlefont=dict(size=14)),
         yaxis=dict(title=initial_axis[1],
-                    titlefont=dict(size=14))
+                    titlefont=dict(size=14),
+                    range=[0.8,1.02])
         )
 
     fig.update_traces(marker=dict(size=20,line=dict(width=1.5,
@@ -46,6 +47,19 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
     )
 
     slider1 = widgets.SelectionSlider(
+        options=['Select Parameter'],
+        value='Select Parameter',
+        layout=Layout(width=lenSlide),
+        continuous_update=True
+    )
+
+    param_drop2 = Dropdown(
+        value='None',
+        options=np.insert(axis_ops,0,'None'),
+        description='Parameter 2:'
+    )
+
+    slider2 = widgets.SelectionSlider(
         options=['Select Parameter'],
         value='Select Parameter',
         layout=Layout(width=lenSlide),
@@ -72,7 +86,8 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
     )
 
     slider_group1 = widgets.HBox([param_drop1, slider1])
-    slider_group2 = widgets.HBox([size_drop, size_slider])
+    slider_group2 = widgets.HBox([param_drop2, slider2])
+    slider_group3 = widgets.HBox([size_drop, size_slider])
 
     xaxis = Dropdown(
         value= initial_axis[0],
@@ -86,7 +101,7 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
         description='Y-axis:'
     )
 
-    container = widgets.VBox(children=[slider_group1,slider_group2,xaxis,yaxis])
+    container = widgets.VBox(children=[slider_group1,slider_group2, slider_group3,xaxis,yaxis])
 
     g = go.FigureWidget(data=fig,
                         layout=go.Layout(
@@ -186,15 +201,45 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
                 #Query filtered data for slider specs
                 query_filt(filtered_data,i)
 
+    def slider2_response(change):
+        with g.batch_update():
+            for i in range(len(group_ops)):
+                #Get data for legend group
+                filtered_data = data.query("{} == '{}'".format(legend_group,g.data[i].name))#make key var that iters
+
+                #Query filtered data for slider specs
+                query_filt(filtered_data,i)
+
     def query_filt(filtered_data,i):
         #Query filtered data for slider specs
     #     filt_bool = (filtered_data.learning_rate == lr_slider.value)#make learning_rate var
-        if param_drop1.value == 'None':
+        if param_drop1.value == 'None' and param_drop2.value == 'None':
             #Assign data to graph
             g.data[i].x = filtered_data[xaxis.value]
             g.data[i].y = filtered_data[yaxis.value]
-        else:
+
+        elif param_drop2.value == 'None':
+
             filt_bool = (filtered_data[param_drop1.value] == slider1.value)#make learning_rate var
+            #Filter out data
+            xfilt = [v if b else None for v,b in zip(filtered_data[xaxis.value],filt_bool)]
+            yfilt = [v if b else None for v,b in zip(filtered_data[yaxis.value],filt_bool)]
+            #Assign data to graph
+            g.data[i].x = xfilt
+            g.data[i].y = yfilt
+
+        elif param_drop1.value == 'None':
+
+            filt_bool = (filtered_data[param_drop2.value] == slider2.value)#make learning_rate var
+            #Filter out data
+            xfilt = [v if b else None for v,b in zip(filtered_data[xaxis.value],filt_bool)]
+            yfilt = [v if b else None for v,b in zip(filtered_data[yaxis.value],filt_bool)]
+            #Assign data to graph
+            g.data[i].x = xfilt
+            g.data[i].y = yfilt
+
+        else:
+            filt_bool = (filtered_data[param_drop1.value] == slider1.value)&(filtered_data[param_drop2.value] == slider2.value) #make learning_rate var
             #Filter out data
             xfilt = [v if b else None for v,b in zip(filtered_data[xaxis.value],filt_bool)]
             yfilt = [v if b else None for v,b in zip(filtered_data[yaxis.value],filt_bool)]
@@ -214,6 +259,9 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
         slider1.options = create_slider_options(param_drop1.value)
         slider1.value = slider1.options[0]
 
+        slider2.options = create_slider_options(param_drop2.value)
+        slider2.value = slider2.options[0]
+
     def size_response(change):
          with g.batch_update():
                 if size_drop.value == 'None':
@@ -227,7 +275,7 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
                         g.data[i].marker.size = traceSizes[i]
                         g.data[i].marker.sizeref = sizeFig.data[0].marker.sizeref
                         g.data[i].marker.sizemode = sizeFig.data[0].marker.sizemode
-                        g.data[i].marker.sizemin = 4
+                        g.data[i].marker.sizemin = 2
 
     def surface_response(change):
         with g.batch_update():
@@ -262,9 +310,11 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
     size_drop.observe(size_response,"value")
     size_slider.observe(size_response, "value")
     slider1.observe(slider1_response, names="value")
+    slider2.observe(slider2_response, names="value")
     xaxis.observe(axis_response, names="value")
     yaxis.observe(axis_response, names="value")
     param_drop1.observe(param_update, names="value")
+    param_drop2.observe(param_update, names="value")
 
     scatterTab = widgets.VBox([container,g])
     surfaceTab = widgets.VBox([container2,g2])
