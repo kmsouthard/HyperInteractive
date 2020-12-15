@@ -5,7 +5,7 @@ import plotly.express as px
 from ipywidgets import widgets
 import datetime
 
-def hyperExplore(df,initial_axis,initial_surface_axis,legend_group,
+def hyperExplore_box(df,initial_axis,initial_surface_axis,legend_group,
                 hover_dat = ['learning_rate','alpha','mu'],
                 fix_y = True,ymin = 0.5, ymax = 1.02):
 
@@ -17,7 +17,7 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group,
     axis_ops = data.columns.values
     lenSlide = '500px'
 
-    fig = px.scatter(data, x="x", y="y", color=legend_group,hover_data= hover_dat,
+    fig = px.box(data, x="x", y="y", color=legend_group,hover_data= hover_dat,
                  log_x=True, title='Hyperparameter Exploration',height=600,
                  )
 
