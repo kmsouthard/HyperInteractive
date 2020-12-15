@@ -5,7 +5,9 @@ import plotly.express as px
 from ipywidgets import widgets
 import datetime
 
-def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = ['learning_rate','alpha','mu']):
+def hyperExplore(df,initial_axis,initial_surface_axis,legend_group,
+                hover_dat = ['learning_rate','alpha','mu'],
+                fix_y = True,ymin = 0.5, ymax = 1.02):
 
     data = df.assign(x=df[initial_axis[0]],y=df[initial_axis[1]])\
        .sort_values(legend_group)\
@@ -16,23 +18,41 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
     lenSlide = '500px'
 
     fig = px.scatter(data, x="x", y="y", color=legend_group,hover_data= hover_dat,
-                 log_x=False, title='Hyperparameter Exploration',height=600)
+                 log_x=True, title='Hyperparameter Exploration',height=600,
+                 )
 
-    fig.update_layout(
-        legend=dict(
-        orientation="v",
-        yanchor="top",
-        y=1.02,
-        xanchor="left",
-        x=1),
-        xaxis=dict(title=initial_axis[0],
-                   titlefont=dict(size=14)),
-        yaxis=dict(title=initial_axis[1],
-                    titlefont=dict(size=14),
-                    range=[0.8,1.02])
-        )
+    if fix_y is True:
+        #create fixed y-axis by setting yaxis range
+        fig.update_layout(
+            legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1.02,
+            xanchor="left",
+            x=1),
+            xaxis=dict(title=initial_axis[0],
+                       titlefont=dict(size=14)),
+            yaxis=dict(title=initial_axis[1],
+                        titlefont=dict(size=14),
+                        range=[ymin,ymax])
+            )
 
-    fig.update_traces(marker=dict(size=20,line=dict(width=1.5,
+    else:
+        #allows yaxis range to be updated as parameters are selected
+        fig.update_layout(
+            legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1.02,
+            xanchor="left",
+            x=1),
+            xaxis=dict(title=initial_axis[0],
+                       titlefont=dict(size=14)),
+            yaxis=dict(title=initial_axis[1],
+                        titlefont=dict(size=14))
+            )
+
+    fig.update_traces(marker=dict(size=4,line=dict(width=1.5,
                                             color='DarkSlateGrey')),
                       selector=dict(mode='markers'))
 
@@ -133,6 +153,19 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
         disabled=False
     )
 
+    param_surf = Dropdown(
+        value='None',
+        options=np.insert(axis_ops,0,'None'),
+        description='Parameter 1:'
+    )
+
+    slider_surf = widgets.SelectionSlider(
+        options=['Select Parameter'],
+        value='Select Parameter',
+        layout=Layout(width=lenSlide),
+        continuous_update=True
+    )
+
 
     z_vals = data.query('{} == "{}"'\
             .format(legend_group,surface_buttons.value))[[x_surface.value,y_surface.value,z_surface.value]]\
@@ -156,7 +189,10 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
                                 ))
     fig2.update_layout(layout)
 
-    container2 = widgets.HBox(children=[surface_buttons,x_surface,y_surface,z_surface])
+
+    surf_slider = widgets.HBox(children=[param_surf,slider_surf])
+    surf_selections = widgets.HBox(children=[surface_buttons,x_surface,y_surface,z_surface])
+    container2 = widgets.VBox(children=[surf_slider, surf_selections])
 
 
     g2 = go.FigureWidget(data=fig2,
@@ -302,10 +338,21 @@ def hyperExplore(df,initial_axis,initial_surface_axis,legend_group, hover_dat = 
 
             g2.update_layout(layout)
 
+    def slider_surf_response(change):
+        with g.batch_update():
+            for i in range(len(group_ops)):
+                #Get data for legend group
+                filtered_data = data.query("{} == '{}'".format(legend_group,g.data[i].name))#make key var that iters
+
+                #Query filtered data for slider specs
+                query_filt(filtered_data,i)
+
     surface_buttons.observe(surface_response,"value")
     x_surface.observe(surface_response,"value")
     y_surface.observe(surface_response,"value")
     z_surface.observe(surface_response,"value")
+    slider_surf.observe(slider_surf_response,"value")
+    #param_surf.observe()
 
     size_drop.observe(size_response,"value")
     size_slider.observe(size_response, "value")
